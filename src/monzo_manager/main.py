@@ -16,7 +16,7 @@ logger = setup_rotating_logger()
 
 
 async def withdraw_from_pot(amount_cents: int, dedupe_id: str) -> bool:
-    url = f"{MONZO_API_BASE}/pots/{settings.monzo_savings_pot_id}/withdraw"
+    url = f"{MONZO_API_BASE}/pots/{settings.monzo_ongoing_pot_id}/withdraw"
     headers = {"Authorization": f"Bearer {settings.monzo_access_token}"}
 
     data = {
@@ -98,10 +98,17 @@ async def handle_monzo_webhook(request: Request):
 
     tx_data = payload.get("data", {})
     current_balance = tx_data.get("account_balance")
+    tx_amount = tx_data.get("amount", 0)  # positive for income
     tx_id = tx_data.get("id")
+    category = tx_data.get("category")
 
     if current_balance is None:
         return {"status": "error", "reason": "no balance data in webhook"}
+
+    if tx_amount >= settings.min_salary_amount_cents or category == "income":
+        logger(f"🎉 SALARY: €{tx_amount / 100}!")
+        await sweep_old_balance(current_balance, tx_amount, tx_id)
+        return {"status": "salary_processed_and_swept"}
 
     result = await check_and_replenish_balance(
         current_balance_cents=current_balance,
@@ -109,3 +116,29 @@ async def handle_monzo_webhook(request: Request):
         tx_id=tx_id
     )
     return result
+
+
+async def deposit_to_nz_pot(amount_cents: int, dedupe_id: str) -> bool:
+    url = f"{MONZO_API_BASE}/pots/{settings.monzo_nz_pot_id}/deposit"
+    headers = {"Authorization": f"Bearer {settings.monzo_access_token}"}
+
+    data = {
+        "source_account_id": settings.monzo_account_id,
+        "amount": str(amount_cents),
+        "dedupe_id": dedupe_id
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, headers=headers, data=data)
+        return response.status_code == 200
+
+
+async def sweep_old_balance(current_balance_cents: int, salary_amount_cents: int, tx_id: str):
+    balance_before_salary = current_balance_cents - salary_amount_cents
+
+    if balance_before_salary > settings.target_buffer_cents:
+        sweep_amount = balance_before_salary - settings.target_buffer_cents
+        logger.info(f"🧹 Add €{sweep_amount / 100} to NZ...")
+        success = await deposit_to_nz_pot(amount_cents=sweep_amount, dedupe_id=f"sweep_{tx_id}")
+        if not success:
+            logger.warning("❌ [SWEEP] Cannot save money to NZ.")
