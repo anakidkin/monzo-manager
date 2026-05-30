@@ -1,0 +1,4 @@
+* text=auto eol=lf
+
+.deployignore eol=lf
+.sh eol=lf

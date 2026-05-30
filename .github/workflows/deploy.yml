@@ -1,0 +1,64 @@
+name: Deploy to Oracle Cloud
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      REMOTE_BOT_DIR: ~/monzo-manager
+      DOCKER_IMAGE_NAME: monzo-manager
+      ARTIFACT_NAME: artifact.tar.gz
+
+    steps:
+      - name: Clean up old files
+        run: rm -rf *
+
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Create application archive
+        run: |
+          tar --exclude-from=.deployignore -czvf /tmp/${{ env.ARTIFACT_NAME }} .
+          mv /tmp/${{ env.ARTIFACT_NAME }} .
+
+      - name: Copy archive to remote
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          source: ${{ env.ARTIFACT_NAME }}
+          target: ${{ env.REMOTE_BOT_DIR }}
+
+      - name: Rebuild, Restart, and Prune on Remote
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+            cd ${{ env.REMOTE_BOT_DIR }}
+            find . -maxdepth 1 -mindepth 1 ! -name '.env' ! -name 'logs' ! -name '${{ env.ARTIFACT_NAME }}' -exec rm -rf {} +
+            tar -xzvf ${{ env.ARTIFACT_NAME }}
+            rm ${{ env.ARTIFACT_NAME }}
+            docker stop ${{ env.DOCKER_IMAGE_NAME }} || true
+            docker rm ${{ env.DOCKER_IMAGE_NAME }} || true
+            docker build -t ${{ env.DOCKER_IMAGE_NAME }}:latest .
+            docker run -d \
+              --name ${{ env.DOCKER_IMAGE_NAME }} \
+              -p 8000:8000 \
+              --restart unless-stopped \
+              --env-file .env \
+              -e LOG_PATH=/app/logs \
+              -v ${{ env.REMOTE_BOT_DIR }}/logs:/app/logs \
+              ${{ env.DOCKER_IMAGE_NAME }}:latest
+            docker image prune -f
+
+      - name: Clean up created files
+        run: rm -rf *
