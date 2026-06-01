@@ -3,6 +3,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     monzo_initial_refresh_token: str
+    monzo_client_id: str
+    monzo_client_secret: str
+
     monzo_account_id: str
     monzo_ongoing_pot_id: str
     monzo_nz_pot_id: str
