@@ -24,8 +24,8 @@ def get_valid_refresh_token() -> str:
     with SessionLocal() as db:
         state = db.query(MonzoState).filter(MonzoState.id == 1).first()
         if not state:
-            logger.info("🌱 [DB] Database is empty. Seeding with initial_refresh_token from config...")
-            state = MonzoState(id=1, refresh_token=settings.initial_refresh_token)
+            logger.info("🌱 [DB] Database is empty. Seeding with monzo_initial_refresh_token from config...")
+            state = MonzoState(id=1, refresh_token=settings.monzo_initial_refresh_token)
             db.add(state)
             db.commit()
         return state.refresh_token
