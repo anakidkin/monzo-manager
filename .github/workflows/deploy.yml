@@ -44,7 +44,7 @@ jobs:
           script: |
             set -e
             cd ${{ env.REMOTE_BOT_DIR }}
-            find . -maxdepth 1 -mindepth 1 ! -name '.env' ! -name 'logs' ! -name '${{ env.ARTIFACT_NAME }}' -exec rm -rf {} +
+            find . -maxdepth 1 -mindepth 1 ! -name '.env' ! -name 'logs' ! -name 'data' ! -name '${{ env.ARTIFACT_NAME }}' -exec rm -rf {} +
             tar -xzvf ${{ env.ARTIFACT_NAME }}
             rm ${{ env.ARTIFACT_NAME }}
             docker stop ${{ env.DOCKER_IMAGE_NAME }} || true
@@ -57,6 +57,7 @@ jobs:
               --env-file .env \
               -e LOG_PATH=/app/logs \
               -v ${{ env.REMOTE_BOT_DIR }}/logs:/app/logs \
+              -v ${{ env.REMOTE_BOT_DIR }}/data:/app/data \
               ${{ env.DOCKER_IMAGE_NAME }}:latest
             docker image prune -f
 

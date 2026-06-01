@@ -21,7 +21,9 @@ COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
 COPY src/monzo_manager/ /app/monzo_manager/
+COPY alembic/ /app/alembic/
+COPY alembic.ini /app/alembic.ini
 
 EXPOSE 8000
 
-CMD ["uvicorn", "monzo_manager.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn monzo_manager.main:app", "--host", "0.0.0.0", "--port", "8000"]
