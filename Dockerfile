@@ -15,6 +15,8 @@ RUN poetry install --no-root
 
 FROM python:3.14-slim AS final
 
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
 COPY --from=builder /app/.venv /app/.venv

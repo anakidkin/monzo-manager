@@ -9,7 +9,3 @@
 * [ ] **Question 2:** How do we trigger the pre-emptive top-up?
 * *Option A:* Since we don't want a background cron/scheduler, can we check the calendar and boost the buffer *at
   application startup* or *on every incoming webhook request*?
-
-
-* [ ] **Task 3: Telegram notifications on any action
-* 
