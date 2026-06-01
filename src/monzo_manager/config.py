@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     target_buffer_cents: int = 10000
     min_salary_amount_cents: int = 490000
 
+    # Telegram settings
+    tg_token: str
+    tg_chat_id: str
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
