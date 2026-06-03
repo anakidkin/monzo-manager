@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from starlette.status import HTTP_200_OK
 
-from monzo_manager.client import fetch_current_balance, withdraw_from_pot, deposit_to_nz_pot
+from monzo_manager.client import fetch_current_balance, withdraw_from_pot, deposit_to_nz_pot, annotate_transaction
 from monzo_manager.config import settings
 from monzo_manager.db import SessionLocal, BotActionLog
 from monzo_manager.log import setup_rotating_logger
@@ -13,6 +13,9 @@ from monzo_manager.telegram import send_telegram_notification
 
 load_dotenv()
 logger = setup_rotating_logger()
+
+BOT_DEDUP_REPLENISH_PREFIX = "buf_"
+BOT_DEDUP_SWEEP_PREFIX = "sweep_"
 
 
 async def check_and_replenish_balance(current_balance_cents: int, trigger_source: str, tx_id: str = None) -> dict:
@@ -23,7 +26,7 @@ async def check_and_replenish_balance(current_balance_cents: int, trigger_source
         logger.info(
             f"⚠️ [{trigger_source}] Balance below limit (€{settings.target_buffer_cents / 100}). Add: €{needed_amount / 100}")
 
-        dedupe_id = f"buf_webhook_{tx_id}" if tx_id else f"buf_startup_{uuid.uuid4().hex}"
+        dedupe_id = f"{BOT_DEDUP_REPLENISH_PREFIX}webhook_{tx_id}" if tx_id else f"{BOT_DEDUP_REPLENISH_PREFIX}startup_{uuid.uuid4().hex}"
 
         success = await withdraw_from_pot(amount_cents=needed_amount, dedupe_id=dedupe_id)
         if success:
@@ -63,7 +66,7 @@ async def sweep_old_balance(current_balance_cents: int, salary_amount_cents: int
     if balance_before_salary > settings.target_buffer_cents:
         sweep_amount = balance_before_salary - settings.target_buffer_cents
         logger.info(f"🧹 Add €{sweep_amount / 100} to NZ...")
-        success = await deposit_to_nz_pot(amount_cents=sweep_amount, dedupe_id=f"sweep_{tx_id}")
+        success = await deposit_to_nz_pot(amount_cents=sweep_amount, dedupe_id=f"{BOT_DEDUP_SWEEP_PREFIX}{tx_id}")
         if success:
             log_action_to_db(
                 action_type="SWEEP",
@@ -140,6 +143,15 @@ async def handle_monzo_webhook(request: Request):
     tx_amount = tx_data.get("amount", 0)  # positive for income
     category = tx_data.get("category")
     scheme = tx_data.get("scheme")
+    metadata = tx_data.get("metadata", {})
+    dedupe_id = metadata.get("dedupe_id", "")
+    notes = metadata.get("notes", "")
+
+    if not notes:
+        if dedupe_id.startswith(BOT_DEDUP_REPLENISH_PREFIX):
+            await annotate_transaction(tx_id, "🤖 Monzo Manager Bot: Ongoing replenished")
+        elif dedupe_id.startswith(BOT_DEDUP_SWEEP_PREFIX):
+            await annotate_transaction(tx_id, "🤖 Monzo Manager Bot: Sweep to NZ")
 
     if scheme == "pot_generic":
         pot_id = tx_data.get("metadata", {}).get("pot_id", "")
