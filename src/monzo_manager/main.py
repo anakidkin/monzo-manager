@@ -2,10 +2,12 @@ import uuid
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request
+from starlette.status import HTTP_200_OK
 
 from monzo_manager.client import fetch_current_balance, withdraw_from_pot, deposit_to_nz_pot
 from monzo_manager.config import settings
+from monzo_manager.db import SessionLocal, BotActionLog
 from monzo_manager.log import setup_rotating_logger
 from monzo_manager.telegram import send_telegram_notification
 
@@ -25,6 +27,13 @@ async def check_and_replenish_balance(current_balance_cents: int, trigger_source
 
         success = await withdraw_from_pot(amount_cents=needed_amount, dedupe_id=dedupe_id)
         if success:
+            log_action_to_db(
+                action_type="REPLENISH",
+                status="SUCCESS",
+                amount_cents=needed_amount,
+                trigger_source=trigger_source,
+                tx_id=tx_id
+            )
             formatted_amount = f"€{needed_amount / 100:.2f}"
             new_balance = f"€{settings.target_buffer_cents / 100:.2f}"
             await send_telegram_notification(
@@ -34,6 +43,14 @@ async def check_and_replenish_balance(current_balance_cents: int, trigger_source
             )
             return {"status": "buffer_replenished", "amount_added": needed_amount}
         else:
+            log_action_to_db(
+                action_type="REPLENISH",
+                status="FAILED",
+                amount_cents=needed_amount,
+                trigger_source=trigger_source,
+                tx_id=tx_id,
+                error_message="Monzo API withdrawal failed (check container logs for details)"
+            )
             return {"status": "failed_to_replenish"}
 
     logger.info(f"✅ [{trigger_source}] Balance is OK.")
@@ -48,6 +65,13 @@ async def sweep_old_balance(current_balance_cents: int, salary_amount_cents: int
         logger.info(f"🧹 Add €{sweep_amount / 100} to NZ...")
         success = await deposit_to_nz_pot(amount_cents=sweep_amount, dedupe_id=f"sweep_{tx_id}")
         if success:
+            log_action_to_db(
+                action_type="SWEEP",
+                status="SUCCESS",
+                amount_cents=sweep_amount,
+                trigger_source="WEBHOOK",
+                tx_id=tx_id
+            )
             formatted_sweep = f"€{sweep_amount / 100:.2f}"
             formatted_salary = f"€{salary_amount_cents / 100:.2f}"
             await send_telegram_notification(
@@ -56,7 +80,35 @@ async def sweep_old_balance(current_balance_cents: int, salary_amount_cents: int
                 f"Swept <b>{formatted_sweep}</b> (old balance excess) into <b>NZ Savings Pot</b>."
             )
         else:
+            log_action_to_db(
+                action_type="SWEEP",
+                status="FAILED",
+                amount_cents=sweep_amount,
+                trigger_source="WEBHOOK",
+                tx_id=tx_id,
+                error_message="Monzo API deposit failed (check container logs for details)"
+            )
             logger.warning("❌ [SWEEP] Cannot save money to NZ.")
+
+
+def log_action_to_db(action_type: str,
+                     status: str,
+                     amount_cents: int,
+                     trigger_source: str,
+                     tx_id: str = None,
+                     error_message: str = None):
+    """Saves a bot action attempt (success or failure) to the SQLite database."""
+    with SessionLocal() as db:
+        log_entry = BotActionLog(
+            action_type=action_type,
+            status=status,
+            amount_cents=amount_cents,
+            trigger_source=trigger_source,
+            tx_id=tx_id,
+            error_message=error_message
+        )
+        db.add(log_entry)
+        db.commit()
 
 
 @asynccontextmanager
@@ -75,9 +127,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Monzo Buffer Bot", lifespan=lifespan)
 
 
-@app.post("/webhook", status_code=status.HTTP_200_OK)
+@app.post("/webhook", status_code=HTTP_200_OK)
 async def handle_monzo_webhook(request: Request):
     payload = await request.json()
+    logger.info(f"webhook received: {payload}")
 
     if payload.get("type") != "transaction.created":
         return {"status": "ignored", "reason": "not a transaction"}

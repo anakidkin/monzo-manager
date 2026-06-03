@@ -16,4 +16,20 @@ class MonzoState(Base):
     id = Column(Integer, primary_key=True, index=True, default=1)
     access_token = Column(String, nullable=True)
     refresh_token = Column(String, nullable=False)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    updated_at = Column(DateTime,
+                        default=datetime.datetime.now(datetime.UTC),
+                        onupdate=datetime.datetime.now(datetime.UTC)
+                        )
+
+
+class BotActionLog(Base):
+    __tablename__ = "bot_action_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    action_type = Column(String, nullable=False)  # 'REPLENISH' or 'SWEEP'
+    status = Column(String, nullable=False)  # 'SUCCESS' or 'FAILED'
+    amount_cents = Column(Integer, nullable=False)
+    trigger_source = Column(String, nullable=False)  # 'STARTUP' or 'WEBHOOK'
+    tx_id = Column(String, nullable=True)
+    error_message = Column(String, nullable=True)  # Details if failed
+    created_at = Column(DateTime, default=datetime.datetime.now(datetime.UTC))
