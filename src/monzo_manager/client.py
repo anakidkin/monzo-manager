@@ -102,6 +102,13 @@ async def withdraw_from_pot(amount_cents: int, dedupe_id: str) -> bool:
         response = await monzo_api_request("PUT", f"/pots/{settings.monzo_ongoing_pot_id}/withdraw", data=data)
         if response.status_code == 200:
             logger.info(f"POT -> €{amount_cents / 100} -> MAIN")
+            resp_data = response.json()
+            tx_id = resp_data.get("transaction", {}).get("id") or resp_data.get("id")
+            if tx_id:
+                await annotate_transaction(
+                    transaction_id=tx_id,
+                    notes="🤖 Monzo Manager Bot: Ongoing replenished"
+                )
             return True
         else:
             logger.error(f"❌ Monzo API {response.status_code}: {response.text}")
@@ -119,4 +126,30 @@ async def deposit_to_nz_pot(amount_cents: int, dedupe_id: str) -> bool:
         "dedupe_id": dedupe_id
     }
     response = await monzo_api_request("POST", f"/pots/{settings.monzo_nz_pot_id}/deposit", data=data)
+    resp_data = response.json()
+    tx_id = resp_data.get("transaction", {}).get("id") or resp_data.get("id")
+    if tx_id:
+        await annotate_transaction(
+            transaction_id=tx_id,
+            notes="🤖 Monzo Manager Bot: Sweep to NZ"
+        )
     return response.status_code == 200
+
+
+async def annotate_transaction(transaction_id: str, notes: str) -> bool:
+    """Custom transaction notes."""
+    data = {
+        "metadata[notes]": notes
+    }
+    try:
+        response = await monzo_api_request("PATCH", f"/transactions/{transaction_id}/metadata", data=data)
+
+        if response.status_code == 200:
+            logger.info(f"📝 Successfully annotated transaction {transaction_id}")
+            return True
+        else:
+            logger.error(f"❌ Failed to annotate transaction: {response.text}")
+            return False
+    except Exception as e:
+        logger.error(f"❌ Error during transaction annotation: {e}")
+        return False
