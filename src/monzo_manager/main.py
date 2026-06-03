@@ -148,9 +148,9 @@ async def handle_monzo_webhook(request: Request):
     notes = metadata.get("notes", "")
 
     if not notes:
-        if dedupe_id.startswith(BOT_DEDUP_REPLENISH_PREFIX):
+        if f":{BOT_DEDUP_REPLENISH_PREFIX}" in dedupe_id:
             await annotate_transaction(tx_id, "🤖 Monzo Manager Bot: Ongoing replenished")
-        elif dedupe_id.startswith(BOT_DEDUP_SWEEP_PREFIX):
+        elif f":{BOT_DEDUP_SWEEP_PREFIX}" in dedupe_id:
             await annotate_transaction(tx_id, "🤖 Monzo Manager Bot: Sweep to NZ")
 
     if scheme == "pot_generic":
