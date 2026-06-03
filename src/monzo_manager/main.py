@@ -134,7 +134,7 @@ app = FastAPI(title="Monzo Buffer Bot", lifespan=lifespan)
 async def handle_monzo_webhook(request: Request):
     payload = await request.json()
     payload_type = payload.get("type")
-    logger.info(f"webhook: {payload}")
+    logger.debug(f"webhook: {payload}")
 
     if payload_type != "transaction.created":
         if payload_type != "transaction.updated":
@@ -148,12 +148,6 @@ async def handle_monzo_webhook(request: Request):
     scheme = tx_data.get("scheme")
     dedupe_id = tx_data.get("dedupe_id", "")
     notes = tx_data.get("notes", "")
-    logger.info(f"{tx_id=}")
-    logger.info(f"{tx_amount=}")
-    logger.info(f"{category=}")
-    logger.info(f"{scheme=}")
-    logger.info(f"{dedupe_id=}")
-    logger.info(f"{notes=}")
 
     if not notes:
         if f":{BOT_DEDUP_REPLENISH_PREFIX}" in dedupe_id:
@@ -164,7 +158,7 @@ async def handle_monzo_webhook(request: Request):
     if scheme == "pot_generic":
         pot_id = tx_data.get("metadata", {}).get("pot_id", "")
         if pot_id == settings.monzo_ongoing_pot_id:
-            logger.info(f"🔄 Ignored inte7id: {tx_id})")
+            logger.info(f"🔄 Ignored internal pot transfer (tx_id: {tx_id})")
             return {"status": "ignored", "reason": "internal pot transfer"}
 
     try:
