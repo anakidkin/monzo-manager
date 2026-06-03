@@ -133,16 +133,25 @@ async def handle_monzo_webhook(request: Request):
     logger.info(f"webhook received: {payload}")
 
     if payload.get("type") != "transaction.created":
-        return {"status": "ignored", "reason": "not a transaction"}
+        return {"status": "ignored", "reason": "not a transaction.created event"}
 
     tx_data = payload.get("data", {})
-    current_balance = tx_data.get("account_balance")
-    tx_amount = tx_data.get("amount", 0)  # positive for income
     tx_id = tx_data.get("id")
+    tx_amount = tx_data.get("amount", 0)  # positive for income
     category = tx_data.get("category")
+    scheme = tx_data.get("scheme")
 
-    if current_balance is None:
-        return {"status": "error", "reason": "no balance data in webhook"}
+    if scheme == "pot_generic":
+        pot_id = tx_data.get("metadata", {}).get("pot_id", "")
+        if pot_id == settings.monzo_ongoing_pot_id:
+            logger.info(f"🔄 Ignored internal pot transfer (tx_id: {tx_id})")
+            return {"status": "ignored", "reason": "internal pot transfer"}
+
+    try:
+        current_balance = await fetch_current_balance()
+    except Exception:
+        logger.exception("❌ Failed to fetch balance from Monzo API")
+        return {"status": "error", "reason": "failed to fetch current balance"}
 
     if tx_amount >= settings.min_salary_amount_cents or category == "income":
         logger.info(f"🎉 SALARY: €{tx_amount / 100}!")
