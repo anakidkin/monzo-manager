@@ -133,9 +133,11 @@ app = FastAPI(title="Monzo Buffer Bot", lifespan=lifespan)
 @app.post("/webhook", status_code=HTTP_200_OK)
 async def handle_monzo_webhook(request: Request):
     payload = await request.json()
-    logger.info(f"webhook received: {payload}")
+    payload_type = payload.get("type")
 
-    if payload.get("type") != "transaction.created":
+    if payload_type != "transaction.created":
+        if payload_type != "transaction.updated":
+            logger.info(f"unknown payload type: {payload}")
         return {"status": "ignored", "reason": "not a transaction.created event"}
 
     tx_data = payload.get("data", {})
