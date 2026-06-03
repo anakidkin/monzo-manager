@@ -146,8 +146,7 @@ async def handle_monzo_webhook(request: Request):
     tx_amount = tx_data.get("amount", 0)  # positive for income
     category = tx_data.get("category")
     scheme = tx_data.get("scheme")
-    metadata = tx_data.get("metadata", {})
-    dedupe_id = metadata.get("dedupe_id", "")
+    dedupe_id = tx_data.get("dedupe_id", "")
     notes = tx_data.get("notes", "")
     logger.info(f"{tx_id=}")
     logger.info(f"{tx_amount=}")
@@ -155,7 +154,6 @@ async def handle_monzo_webhook(request: Request):
     logger.info(f"{scheme=}")
     logger.info(f"{dedupe_id=}")
     logger.info(f"{notes=}")
-    logger.info(f"{metadata=}")
 
     if not notes:
         if f":{BOT_DEDUP_REPLENISH_PREFIX}" in dedupe_id:
