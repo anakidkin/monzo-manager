@@ -88,7 +88,19 @@ async def fetch_current_balance() -> int:
     if response.status_code == 200:
         return response.json().get("balance", 0)
     else:
-        raise Exception(f"Cannot get balance: {response.status_code}")
+        raise RuntimeError(f"Cannot get balance: {response.status_code}")
+
+
+async def fetch_pot_balance(pot_id: str) -> int:
+    """Fetches pot balance in cents."""
+    params = {"account_id": settings.monzo_account_id}
+    response = await monzo_api_request("GET", "/pots", params=params)
+    if response.status_code != 200:
+        raise RuntimeError(f"Cannot get pot '{pot_id}' balance: {response.status_code}")
+    for pot in response.json().get("pots", []):
+        if pot_id == pot.get("id"):
+            return pot.get("balance", 0)
+    raise ValueError(f"Cannot find pot '{pot_id}'")
 
 
 async def withdraw_from_pot(amount_cents: int, dedupe_id: str) -> bool:
@@ -111,14 +123,14 @@ async def withdraw_from_pot(amount_cents: int, dedupe_id: str) -> bool:
         return False
 
 
-async def deposit_to_nz_pot(amount_cents: int, dedupe_id: str) -> bool:
-    """Deposits money from the main account into the NZ savings pot."""
+async def deposit_to_pot(pot_id: str, amount_cents: int, dedupe_id: str) -> bool:
+    """Deposits money from the main account into the savings pot."""
     data = {
         "source_account_id": settings.monzo_account_id,
         "amount": str(amount_cents),
         "dedupe_id": dedupe_id
     }
-    response = await monzo_api_request("POST", f"/pots/{settings.monzo_nz_pot_id}/deposit", data=data)
+    response = await monzo_api_request("POST", f"/pots/{pot_id}/deposit", data=data)
     return response.status_code == 200
 
 
