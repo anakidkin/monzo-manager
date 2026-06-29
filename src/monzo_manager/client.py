@@ -103,7 +103,7 @@ async def fetch_pot_balance(pot_id: str) -> int:
     raise ValueError(f"Cannot find pot '{pot_id}'")
 
 
-async def withdraw_from_pot(amount_cents: int, dedupe_id: str) -> bool:
+async def withdraw_from_pot(amount_cents: int, dedupe_id: str) -> tuple[bool, int]:
     """Withdraws money from the ongoing buffer pot to the main account."""
     data = {
         "destination_account_id": settings.monzo_account_id,
@@ -114,13 +114,13 @@ async def withdraw_from_pot(amount_cents: int, dedupe_id: str) -> bool:
         response = await monzo_api_request("PUT", f"/pots/{settings.monzo_ongoing_pot_id}/withdraw", data=data)
         if response.status_code == 200:
             logger.info(f"POT -> €{amount_cents / 100} -> MAIN")
-            return True
+            return True, response.json().get("balance", 0)
         else:
             logger.error(f"❌ Monzo API {response.status_code}: {response.text}")
-            return False
+            return False, 0
     except Exception:
         logger.exception("❌ Monzo API is unavailable")
-        return False
+        return False, 0
 
 
 async def deposit_to_pot(pot_id: str, amount_cents: int, dedupe_id: str) -> bool:

@@ -36,7 +36,7 @@ async def check_and_replenish_balance(trigger_source: str, tx_id: str = None) ->
 
         dedupe_id = f"{BOT_DEDUP_REPLENISH_PREFIX}webhook_{tx_id}" if tx_id else f"{BOT_DEDUP_REPLENISH_PREFIX}startup_{uuid.uuid4().hex}"
 
-        success = await withdraw_from_pot(amount_cents=needed_amount, dedupe_id=dedupe_id)
+        success, balance = await withdraw_from_pot(amount_cents=needed_amount, dedupe_id=dedupe_id)
         if success:
             log_action_to_db(
                 action_type="REPLENISH",
@@ -46,7 +46,7 @@ async def check_and_replenish_balance(trigger_source: str, tx_id: str = None) ->
                 tx_id=tx_id
             )
             formatted_amount = f"€{needed_amount / 100:.2f}"
-            new_balance = f"€{settings.target_buffer_cents / 100:.2f}"
+            new_balance = f"€{settings.target_buffer_cents / 100:.2f} / {balance / 100:.2f}"
             await send_telegram_notification(
                 f"📥 <b>Buffer Replenished [{trigger_source}]</b>\n"
                 f"Pulled <b>{formatted_amount}</b> from Ongoing Pot to restore target buffer.\n"
