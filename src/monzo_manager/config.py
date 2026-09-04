@@ -9,8 +9,8 @@ class Settings(BaseSettings):
     monzo_account_id: str
     monzo_ongoing_pot_id: str
     monzo_nz_pot_id: str
-    target_buffer_cents: int = 10000
-    min_salary_amount_cents: int = 490000
+    target_buffer_cents: int
+    min_salary_amount_cents: int
 
     # Telegram settings
     tg_token: str
