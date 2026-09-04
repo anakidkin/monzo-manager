@@ -93,7 +93,7 @@ async def fetch_current_balance() -> int:
 
 async def fetch_pot_balance(pot_id: str) -> int:
     """Fetches pot balance in cents."""
-    params = {"account_id": settings.monzo_account_id}
+    params = {"current_account_id": settings.monzo_account_id}
     response = await monzo_api_request("GET", "/pots", params=params)
     if response.status_code != 200:
         raise RuntimeError(f"Cannot get pot '{pot_id}' balance: {response.status_code}")

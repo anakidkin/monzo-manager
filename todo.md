@@ -1,5 +1,10 @@
 ### 📋 Monzo Manager: TODO List & Roadmap
 
+* [ ] TG whitelist for family members
+* [ ] TG commands:
+  * [ ] "/add {amount}" to ongoing
+  * [ ] salary retry
+
 #### 🔵 Phase 3: Smart Features (BACKLOG)
 
 * [ ] **Task 2: Subscription Calendar (Predictive Top-up)**
