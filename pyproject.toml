@@ -9,9 +9,9 @@ readme = "README.md"
 packages = [{include = "monzo_manager", from = "src"}]
 requires-python = ">=3.14"
 dependencies = [
-    "fastapi (>=0.136.3,<0.137.0)",
-    "uvicorn (>=0.48.0,<0.49.0)",
-    "httpx (>=0.28.1,<0.29.0)",
+    "fastapi (>=0.136.3,<1.0.0)",
+    "uvicorn (>=0.48.0,<1.0.0)",
+    "httpx (>=0.28.1,<1.0.0)",
     "pydantic-settings (>=2.14.1,<3.0.0)",
     "python-dotenv (>=1.2.2,<2.0.0)",
     "sqlalchemy (>=2.0.50,<3.0.0)",
