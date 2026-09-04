@@ -20,9 +20,17 @@ An event-driven financial assistant built with FastAPI and Docker. It monitors y
 ├── src/
 │   └── monzo_manager/      # Main application package
 │       ├── db.py           # SQLite & SQLAlchemy setup
+│       ├── client.py       # Monzo API client
+│       ├── config.py       # Pydantic-settings configuration
 │       ├── main.py         # FastAPI app & Monzo logic
-│       └── settings.py     # Pydantic-settings configuration
+│       └── telegram.py     # Telegram client
 ├── alembic.ini             # Alembic configuration
 ├── Dockerfile              # Multi-stage production build
 ├── pyproject.toml          # Poetry configuration & metadata
 └── README.md
+```
+
+## 🚨 EXPLOITATION NOTES  
+
+Every 90 days, you need to renew the client's permission in the Monzo bank application under:  
+**Settings -> Privacy & Security -> Manage Apps -> Refresh Permissions**
